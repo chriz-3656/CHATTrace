@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHATTrace - Secure Chat</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #0a0a0a;
+            color: #00ff88;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid #00ff88;
+            border-radius: 5px;
+            padding: 20px;
+            background: rgba(0, 20, 10, 0.8);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #00ff88;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.7);
+            margin-bottom: 30px;
+        }
+        
+        #login-screen, #chat-screen {
+            display: none;
+        }
+        
+        #chat-screen.active {
+            display: block;
+        }
+        
+        #login-screen.active {
+            display: block;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            background: #001a0d;
+            border: 1px solid #00ff88;
+            color: #00ff88;
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        button {
+            background: #003317;
+            color: #00ff88;
+            border: 1px solid #00ff88;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        
+        button:hover {
+            background: #004d24;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        
+        #messages {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #00ff88;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: rgba(0, 10, 5, 0.7);
+        }
+        
+        .message {
+            margin-bottom: 10px;
+            padding: 5px;
+            border-left: 2px solid #00ff88;
+            padding-left: 10px;
+        }
+        
+        .user-message {
+            color: #00cc66;
+        }
+        
+        .system-message {
+            color: #ffaa00;
+            font-style: italic;
+        }
+        
+        #message-input {
+            width: calc(100% - 110px);
+            display: inline-block;
+        }
+        
+        #send-button {
+            width: 100px;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        
+        .typing-indicator {
+            color: #ffaa00;
+            font-style: italic;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CHATTrace v1.0</h1>
+        
+        <div id="login-screen" class="active">
+            <h2>Enter Chat Room</h2>
+            <input type="text" id="username-input" placeholder="Enter your temporary username..." maxlength="20">
+            <button onclick="joinChat()">Join Chat</button>
+        </div>
+        
+        <div id="chat-screen">
+            <div id="messages"></div>
+            <input type="text" id="message-input" placeholder="Type your message..." maxlength="500">
+            <button id="send-button" onclick="sendMessage()">Send</button>
+            <div id="typing-indicator" class="typing-indicator" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let username = '';
+        
+        // DOM Elements
+        const loginScreen = document.getElementById('login-screen');
+        const chatScreen = document.getElementById('chat-screen');
+        const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('message-input');
+        const usernameInput = document.getElementById('username-input');
+        const typingIndicator = document.getElementById('typing-indicator');
+        
+        // Join chat function
+        function joinChat() {
+            username = usernameInput.value.trim();
+            if (username === '') {
+                alert('Please enter a username!');
+                return;
+            }
+            
+            socket.emit('join', { username: username });
+            loginScreen.classList.remove('active');
+            chatScreen.classList.add('active');
+            
+            // Focus on message input
+            messageInput.focus();
+        }
+        
+        // Send message function
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message === '') return;
+            
+            socket.emit('message', { username: username, message: message });
+            messageInput.value = '';
+        }
+        
+        // Event listeners
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+        
+        socket.on('user_joined', (data) => {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message system-message';
+            messageElement.textContent = `${data.username} joined the chat`;
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
+        
+        socket.on('new_message', (data) => {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message user-message';
+            messageElement.innerHTML = `<strong>${data.username}</strong> (${data.timestamp}): ${data.message}`;
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
+        
+        // Handle Enter key for sending messages
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Typing indicator simulation
+        messageInput.addEventListener('input', () => {
+            if (messageInput.value.length > 0) {
+                typingIndicator.style.display = 'block';
+                typingIndicator.textContent = `${username} is typing...`;
+            } else {
+                typingIndicator.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
